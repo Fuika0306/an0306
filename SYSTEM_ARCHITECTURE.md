@@ -33,7 +33,8 @@
 │   ├── brain_encode.py        # 舊版 / 實驗用腳本（逐步淘汰）
 │   ├── brain_retrieve.py
 │   ├── decay_v2.py
-│   └── garbage_collector.py
+│   ├── garbage_collector.py
+│   └── README.md              # 說明 scripts/ 為實驗/備份用
 ├── subagents/
 │   ├── ROUTER.md              # 子代理路由配置
 │   ├── 空-Opus.md             # 🔍 空（分析）— 規劃與深度思考
@@ -127,6 +128,17 @@
   - `衛-Haiku.md`：心跳監控、指標追蹤、異常告警草稿。
 
 詳細路由邏輯見 `subagents/ROUTER.md`，與 `AUTO-DISPATCH.md` 保持一致。
+
+### 4.1 模型與超時配置一覽
+
+| 角色           | Agent / 模型說明           | 超時   |
+|----------------|----------------------------|--------|
+| 玥（主代理）   | `openai-codex/gpt-5.1`     | -      |
+| 🔍 空（分析）  | 見 `subagents/ROUTER.md`   | 120 s  |
+| 🛠 剀（工匠）  | 見 `subagents/ROUTER.md`   | 180 s  |
+| 👀 衛（監控）  | 見 `subagents/ROUTER.md`   | 30 s   |
+
+> 真正的 provider 模型 ID 以 OpenClaw 配置檔為準；此表主要用於快速查看角色與超時設定。
 
 ## 5. 心跳與記憶閉環（當前版本）
 

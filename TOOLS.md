@@ -1,7 +1,5 @@
 # TOOLS.md - 環境與工具清單
 
-TOOLS.md 就是這個工作空間的「環境配置清單」。
-
 ## 系統環境
 
 - OS：Linux（OpenCloudOS）
@@ -11,29 +9,24 @@ TOOLS.md 就是這個工作空間的「環境配置清單」。
 
 ## 已裝工具
 
-- **Python**：
-  - sentence-transformers
-  - numpy
-  - torch
-- **Node.js**：
-  - tweetnacl
-- **系統工具**：
-  - git
-  - cron
-  - jq
+- Python：sentence-transformers、numpy、torch
+- Node.js：tweetnacl
+- 系統：git、cron、jq
 
-## 核心腳本 / 任務
+## 核心腳本位置
 
-- 記憶編碼與檢索
-- 每日總結
-- 週期性深度分析
-- 記憶檢查點（checkpoint）
+- 記憶編碼：para-system/brain_encode.py
+- 記憶檢索：para-system/brain_retrieve.py
+- 記憶衰減：para-system/memory-decay.py
+- 每日總結：para-system/daily-summary.sh
+- 深度分析：para-system/nightly-deep-analysis.sh
+- 檢查點：para-system/checkpoint-memory-llm.sh
 
-## 記憶系統結構
+## 記憶系統
 
-- **Golden**：永不衰減的核心記憶
-- **Silver**：90 天無引用淘汰的活躍記憶
-- **Bronze**：30 天無引用淘汰的臨時快照
-- **嵌入向量**：用於語義檢索的向量表示
+- Golden（MEMORY.md）：永不衰減
+- Silver（YYYY-MM-DD-summary.md）：90 天無引用淘汰
+- Bronze（YYYY-MM-DD.md）：30 天無引用淘汰
+- 嵌入向量（memory/embeddings/）：語義檢索用
 
 > 之後如果有新增服務、主機、腳本，就補在這裡，當成玥的環境說明書。

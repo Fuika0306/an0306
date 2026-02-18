@@ -33,7 +33,7 @@ EXECUTION.md 是執行鐵律 —— 有主動性，但不亂來。
 
 ### 🔴 紅燈（必須確認）
 - 刪除檔案 / 目錄
-- 修改核心配置
+- 修改核心配置（openclaw.json、SOUL.md、MEMORY.md、AGENTS.md）
 - 對外發消息（貼文、推文、Email 等）
 - 花錢的 API / 大額操作
 
