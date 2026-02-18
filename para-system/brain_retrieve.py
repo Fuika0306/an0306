@@ -1,59 +1,88 @@
 #!/usr/bin/env python3
-# 記憶檢索 - 用語義相似度從索引中找相關記憶
-
+import os
 import json
 import sys
-from pathlib import Path
+from typing import List, Dict
 
-try:
-    from sentence_transformers import SentenceTransformer
-    import numpy as np
-except ImportError:
-    print("⚠️ 需要安裝：pip install sentence-transformers numpy")
-    exit(1)
+from sentence_transformers import SentenceTransformer
 
-MEMORY_DIR = Path.home() / ".openclaw/workspace/memory"
-EMBEDDINGS_DIR = MEMORY_DIR / "embeddings"
+WORKSPACE = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+EMBED_DIR = os.path.join(WORKSPACE, "para-system", "embeddings")
+INDEX_FILE = os.path.join(EMBED_DIR, "index.json")
+
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+TOP_K = 3
 
 
-def retrieve(query: str, top_k: int = 3):
+def load_index() -> Dict:
+    if not os.path.exists(INDEX_FILE):
+        raise FileNotFoundError(f"index.json not found at {INDEX_FILE}. Run brain_encode.py first.")
+    with open(INDEX_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def load_vectors(index: Dict):
+    vectors = []
+    for item in index.get("items", []):
+        with open(item["vector_path"], "r", encoding="utf-8") as vf:
+            data = json.load(vf)
+            vectors.append(data["vector"])
+    if not vectors:
+        raise RuntimeError("No vectors loaded from embeddings directory.")
+    return vectors
+
+
+def dot(a, b) -> float:
+    return sum(x * y for x, y in zip(a, b))
+
+
+def cosine_similarity(query_vec, vectors):
+    # embeddings are already normalized, so cosine = dot
+    return [dot(query_vec, v) for v in vectors]
+
+
+def retrieve(query: str, top_k: int = TOP_K) -> List[Dict]:
+    index = load_index()
+    items = index.get("items", [])
+    if not items:
+        raise RuntimeError("Index contains no items.")
+
     model = SentenceTransformer(MODEL_NAME)
-    query_embedding = model.encode(query)
+    q_vec = model.encode([query], show_progress_bar=False, normalize_embeddings=True)[0].tolist()
+    vecs = load_vectors(index)
 
-    with open(EMBEDDINGS_DIR / "index.json", "r") as f:
-        index = json.load(f)
+    scores = cosine_similarity(q_vec, vecs)
 
-    scores = []
+    ranked = sorted(zip(items, scores), key=lambda x: x[1], reverse=True)
+    results = []
+    for item, score in ranked[:top_k]:
+        # load a short preview
+        try:
+            with open(item["source_path"], "r", encoding="utf-8") as f:
+                text = f.read(400)
+        except FileNotFoundError:
+            text = "[source file missing]"
 
-    for fname, meta in index.items():
-        vec_path = EMBEDDINGS_DIR / f"{fname}.vec"
-        if not vec_path.exists():
-            continue
+        results.append({
+            "id": item["id"],
+            "score": float(score),
+            "source_path": item["source_path"],
+            "preview": text,
+        })
 
-        with open(vec_path, "r") as f:
-            embedding = np.array(json.load(f))
+    return results
 
-        similarity = float(
-            np.dot(query_embedding, embedding)
-            / (np.linalg.norm(query_embedding) * np.linalg.norm(embedding) + 1e-8)
-        )
 
-        scores.append((fname, similarity, meta["path"]))
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: brain_retrieve.py <query>")
+        sys.exit(1)
 
-    scores.sort(key=lambda x: x[1], reverse=True)
-    return scores[:top_k]
+    query = " ".join(sys.argv[1:])
+    results = retrieve(query, top_k=TOP_K)
+
+    print(json.dumps({"query": query, "results": results}, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("用法：python brain_retrieve.py '查詢文本'")
-        exit(1)
-
-    query = sys.argv[1]
-    results = retrieve(query)
-
-    print(f"🔍 查詢：{query}")
-    for fname, score, path in results:
-        print(f"  {fname} (相似度: {score:.2f})")
-        print(f"   → {path}")
+    main()
