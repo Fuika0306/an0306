@@ -1,4 +1,4 @@
-# SYSTEM_ARCHITECTURE.md - 玥 / Yue v2.1
+# SYSTEM_ARCHITECTURE.md - 玥 / Yue v2.2
 
 > 真正跑在這台機器上的版本，以這個 workspace 為準。
 
@@ -14,135 +14,142 @@
 ├── HEARTBEAT.md           # 心跳級別與檢查規則
 ├── SYSTEM_ARCHITECTURE.md # 本檔案
 ├── memory/
-│   ├── YYYY-MM-DD.md      # 每日日誌（P1 / Silver 來源）
-│   ├── failure-reports/   # 失敗與異常記錄
-│   ├── failures.json      # 失敗索引
-│   ├── index.json         # 神髓記憶索引（語義記憶）
-│   ├── index.lock         # fcntl 鎖定用檔案
-│   ├── pain-points.md     # 觀察到的痛點
-│   ├── retrieval-audit.json # 檢索行為統計
-│   ├── embeddings/        # 向量檔案 {id}.npy
-│   └── archive/           # Dust 記憶歸檔 jsonl
+│   ├── YYYY-MM-DD.md          # Bronze 每日日誌
+│   ├── YYYY-MM-DD-summary.md  # Silver 每日總結
+│   ├── handoff.md             # 當前狀態快照
+│   ├── failures.json          # 失敗索引
+│   ├── pain-points.md         # 觀察到的痛點
+│   ├── retrieval-audit.json   # 檢索行為統計
+│   ├── embeddings/            # 向量快取（可選）
+│   └── archive/               # 歸檔記憶
+├── para-system/
+│   ├── brain_encode.py        # 記憶語義編碼
+│   ├── brain_retrieve.py      # 記憶檢索
+│   ├── memory-decay.py        # 記憶衰減檢查
+│   ├── daily-summary.sh       # 每日總結生成
+│   ├── nightly-deep-analysis.sh # 夜間深度分析
+│   └── checkpoint-memory-llm.sh #（預留）用 LLM 做記憶檢查點
 ├── scripts/
-│   ├── brain_encode.py    # 新記憶編碼 + 語義查重 + 強化
-│   ├── brain_retrieve.py  # 語義檢索 + retrieval_count
-│   ├── decay_v2.py        # 重要性衰減 / 狀態更新
-│   └── garbage_collector.py # Dust 垃圾回收 + 向量清理
+│   ├── brain_encode.py        # 舊版 / 實驗用腳本（逐步淘汰）
+│   ├── brain_retrieve.py
+│   ├── decay_v2.py
+│   └── garbage_collector.py
 ├── subagents/
-│   ├── 空-Opus.md         # 🔍 空（分析）— 規劃與深度思考
-│   ├── 剀-Opus.md         # 🛠️ 剀（工匠）— 實作與優化
-│   └── 衛-Haiku.md        # 👀 衛（監控）— 監控與告警
+│   ├── ROUTER.md              # 子代理路由配置
+│   ├── 空-Opus.md             # 🔍 空（分析）— 規劃與深度思考
+│   ├── 剀-Opus.md             # 🛠️ 剀（工匠）— 實作與優化
+│   └── 衛-Haiku.md            # 👀 衛（監控）— 監控與告警
 └── ...
 ```
 
-## 2. 記憶模型（index.json）
+## 2. 記憶模型（簡化版：Golden / Silver / Bronze）
 
-`memory/index.json` 使用如下結構儲存語義記憶：
+統一使用簡單模型，對齊 `MEMORY.md` 與 `HEARTBEAT.md`：
 
-```jsonc
-{
-  "memories": [
-    {
-      "id": 1,
-      "content": "記憶內容",
-      "actor": "Self|空|剀|玥|User",
-      "target": "Core|Subagents|Task|Memory",
-      "domain": "World|Role|User",
-      "initial_importance": 0.5,
-      "current_importance": 0.5,
-      "s_factor": 0.995,
-      "density": 0.5,
-      "access_count": 0,
-      "retrieval_count": 0,
-      "last_access": "ISO-8601",
-      "creation_date": "ISO-8601",
-      "state": "Golden|Silver|Bronze|Dust"
-    }
-  ],
-  "last_sync": "ISO-8601"
-}
-```
+- **Golden**：
+  - 長期核心記憶，寫在 `MEMORY.md`。
+  - 永不衰減，僅透過人工/重大事件更新。
 
-狀態切分：
+- **Silver**：
+  - 每日/區段的總結，文件型態為 `YYYY-MM-DD-summary.md`。
+  - 保留期：**90 天** 無引用 → 可淘汰或歸檔。
 
-- `Golden`  : `current_importance >= 0.85`（核心原則、不衰減）
-- `Silver`  : `0.50 ≤ current_importance < 0.85`
-- `Bronze`  : `0.20 ≤ current_importance < 0.50`
-- `Dust`    : `< 0.20`，等待垃圾回收
+- **Bronze**：
+  - 每日日誌，文件型態為 `YYYY-MM-DD.md`。
+  - 保留期：**30 天** 無引用 → 可淘汰或歸檔。
 
-所有語義向量存於 `memory/embeddings/{id}.npy`。
+- **embeddings/**：
+  - 對 `memory/*.md` 做語義編碼後的向量快取，用於檢索。
+  - 可隨時重建（`para-system/brain_encode.py`），不視為權威來源。
 
-## 3. 核心腳本職責
+- **archive/**：
+  - 歷史歸檔，放入不再日常使用但偶爾可能查詢的舊記錄。
 
-### 3.1 `scripts/brain_encode.py`
+衰減規則（由腳本落地）：
 
-- 輸入一段文字（必填）與 meta（actor / target / domain / score）。
-- 使用 `all-MiniLM-L6-v2` 產生向量。
-- 讀取 `memory/index.json` + embeddings：
-  - 若與既有記憶 cosine 相似度 `≥ 0.75` → 強化：
-    - `access_count += 1`
-    - `density += 0.2`
-    - `current_importance += initial_importance × 0.15`（上限 2.0）
-    - 更新 `state` 與 `last_access`
-  - 否則：
-    - 新增一筆記憶（自動遞增 `id`）
-    - 寫入 embedding 檔案 `{id}.npy`
-- 使用 `memory/index.lock` + `fcntl.flock` 實現排他鎖。
-- 若文字中包含 `!REMEMBER`，會將 `initial_importance` 強制提升至至少 `0.9`。
+- Golden：永不衰減。
+- Silver：90 天無引用（或無修改） → `memory-decay.py` 報警，可歸檔或刪除。
+- Bronze：30 天無引用（或無修改） → `memory-decay.py` 報警，可歸檔或刪除。
 
-### 3.2 `scripts/brain_retrieve.py`
+## 3. 核心腳本職責（para-system/）
 
-- 根據 query 產生向量，與全部 embeddings 計算 cosine 相似度。
-- 參數：
-  - `--top-k`：回傳筆數（預設 5）
-  - `--threshold`：最低相似度（預設 0.5）
-- 對於入選的記憶：
-  - `retrieval_count += 1`
-  - 更新 `last_access`
-- 在終端印出人類可讀格式（id / sim / state / content）。
+### 3.1 `para-system/brain_encode.py` — 記憶語義編碼
 
-### 3.3 `scripts/decay_v2.py`
+- 對 `memory/*.md` 做語義編碼，寫入 `memory/embeddings/*.vec`。
+- 建立 `memory/embeddings/index.json`：
+  - 紀錄檔案路徑、長度、最後編碼時間等 meta。
+- 可透過 cron/手動定期重建，作為語義檢索的基礎。
 
-- 對非 Golden 記憶套用一次性衰減：
-  - `current_importance *= 0.8`（20% 減少）
-  - 重新計算 `state`
-  - 更新 `last_access`
-- 實際半衰期由 cron 執行頻率決定（例如每天 1 次 ≈ README 中的 7/30 天節奏）。
+### 3.2 `para-system/brain_retrieve.py` — 記憶檢索
 
-### 3.4 `scripts/garbage_collector.py`
+- 輸入 query 字串，計算與 `embeddings` 中各檔案的 cosine 相似度。
+- 回傳/列印最相關的數筆記憶（預設 top 3）。
+- 用途：
+  - 在回答問題前，先找相關日誌/總結作輔助。
 
-- 只處理 `state == "Dust"` 的記憶。
-- 使用 `--age N` 判斷 `last_access` 是否早於 N 天之前。
-- 安全機制：總記憶量至少保留 10 筆，不會一次清空。
-- 流程：
-  1. 找出 Dust 且超過 `age` 的候選。
-  2. 將要刪除的記憶先寫入 `memory/archive/YYYY-MM-DD.jsonl`。
-  3. 刪除對應的 `{id}.npy` 向量檔。
-  4. 從 `index.json` 中移除。
-- 預設為 dry-run；只有加上 `--execute` 才真正刪除。
+### 3.3 `para-system/memory-decay.py` — 記憶衰減檢查
 
-## 4. 子代理（subagents）
+- 掃描 `memory/` 下的 `.md` 文件：
+  - 檢查檔案最後修改時間與命名（`summary` / `daily` 等）。
+  - 超過 Silver/Bronze 的保留期限時，在輸出中給出警示。
+- 真正的「刪除/歸檔」由人或額外腳本決定，不自動動手。
 
-> 檔案先佔位，具體工作流可隨使用習慣再細化。
+### 3.4 `para-system/daily-summary.sh` — 每日總結生成
 
-- `subagents/空-Opus.md`：
-  - 深度分析、問題診斷、架構設計。
-  - 適合長文本分析、模式辨識、決策建議。
-- `subagents/剀-Opus.md`：
-  - 代碼實作、腳本優化、工具整合。
-  - 負責把想法變成可執行的東西。
-- `subagents/衛-Haiku.md`：
-  - 心跳監控、指標追蹤、異常告警草稿。
-  - 適合搭配 cron 任務，用於 watch dog 類工作。
+- 每日建立一份 `YYYY-MM-DD-summary.md` 模板，包含：
+  - 今日活動
+  - 決策記錄
+  - 學習收穫
+  - 明日計劃
+- 若該日已存在 summary 檔案，則不覆蓋。
+
+### 3.5 `para-system/nightly-deep-analysis.sh` — 夜間深度分析
+
+- 統計：
+  - Golden / Silver / Bronze 數量
+  - 記憶目錄磁盤使用
+  - 最近修改時間
+- 執行 `memory-decay.py`，將衰減檢查輸出嵌入報告。
+- 產出 `memory/nightly-analysis-YYYY-MM-DD.md` 報告，作為週期性健康檢查。
+
+### 3.6 `para-system/checkpoint-memory-llm.sh`（預留）
+
+- 未來可用來：
+  - 呼叫 LLM 對當前記憶狀態做高層總結。
+  - 產出新的 Golden 片段候選，再由人審核寫入 `MEMORY.md`。
+
+## 4. 子代理（subagents）與路由
+
+- `subagents/ROUTER.md` 描述具體路由規則與模型/超時設定。
+- 具體分身：
+  - `空-Opus.md`：深度分析、問題診斷、架構設計。
+  - `剀-Opus.md`：代碼實作、腳本優化、工具整合。
+  - `衛-Haiku.md`：心跳監控、指標追蹤、異常告警草稿。
+
+詳細路由邏輯見 `subagents/ROUTER.md`，與 `AUTO-DISPATCH.md` 保持一致。
 
 ## 5. 心跳與記憶閉環（當前版本）
 
 - 心跳依 `HEARTBEAT.md`：
-  - 輕量級：檢查 handoff / active_tasks / critical_alerts。
-  - 標準/完整級：未來可在這基礎上掛載 `decay_v2.py` 與 `garbage_collector.py`。
-- 建議後續：
-  - 每日凌晨跑一次 `decay_v2.py`（通過 OpenClaw cron）。
-  - 每週或每兩週跑一次 `garbage_collector.py --age 7`，先 dry-run 看結果再決定是否 `--execute`。
+  - 輕量級：
+    - 讀 `memory/handoff.md`
+    - 檢查進行中任務（active_tasks）
+    - 檢查 P0 警報（critical_alerts）
+  - 標準級：
+    - 包含輕量級所有項目
+    - 加上記憶統計（Golden / Silver / Bronze 數量）
+    - 子代理狀態（只看有無新消息 / 異常）
+  - 完整級：
+    - 包含標準級所有項目
+    - 全系統檢查（cron 任務、記憶衰減、磁碟使用）
+    - 可呼叫 `memory-decay.py` 並檢查是否需要清理或歸檔。
+
+- 建議排程（部分已透過 OpenClaw cron 實作）：
+  - 每日 02:00：清理 & 衰減檢查
+  - 每日 03:30：`nightly-deep-analysis.sh`（深度分析報告）
+  - 每日 06:00：記憶檢查點備份
+  - 每日 08:00：每日總結
+  - 每週：深度分析與系統優化建議
 
 ---
 
