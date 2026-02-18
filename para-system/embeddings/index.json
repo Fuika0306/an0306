@@ -1,0 +1,11 @@
+{
+  "items": [
+    {
+      "id": "MEMORY.md",
+      "source_path": "/root/.openclaw/workspace/MEMORY.md",
+      "vector_path": "/root/.openclaw/workspace/para-system/embeddings/MEMORY.md.vec.json",
+      "size": 3822,
+      "encoded_at": "2026-02-18T14:15:48.026462+00:00"
+    }
+  ]
+}
