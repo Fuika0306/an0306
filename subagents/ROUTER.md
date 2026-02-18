@@ -3,23 +3,26 @@
 ## 三個分身
 
 ### 🔍 空（分析）
+- agentId：`kong`
 - 角色：深度分析、診斷、規劃
 - 觸發：分析、診斷、為什麼、規劃、比較
-- 模型：Opus 4.6 Thinking
+- 模型：Opus 4.6 Thinking（OpenClaw agent：kong）
 - 超時：30s
 - 預算：< 5k tokens
 
 ### 🛠 剀（工匠）
+- agentId：`kai`
 - 角色：代碼實現、系統建設、問題修復
 - 觸發：寫、改、建、修、實現、優化、重構
-- 模型：Opus 4.5
+- 模型：Opus 4.5（OpenClaw agent：kai）
 - 超時：60s
 - 預算：< 8k tokens
 
 ### 👀 衛（監控）
+- agentId：`main`（暫用，未單獨拆 agent）
 - 角色：快速檢查、狀態監控、結果驗證
 - 觸發：檢查、狀態、監控、掃描、驗證
-- 模型：Haiku
+- 模型：Haiku（待接入專用 agent，如 `wei`）
 - 超時：10s
 - 預算：< 2k tokens
 
