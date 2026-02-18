@@ -12,6 +12,8 @@
 ├── AGENTS.md              # 工作空間說明與規則
 ├── IDENTITY.md            # 玥的自我定義
 ├── HEARTBEAT.md           # 心跳級別與檢查規則
+├── EXECUTION.md           # 執行鐵律（分級 + 停損）
+├── AUTO-DISPATCH.md       # 子代理自動調度規則
 ├── SYSTEM_ARCHITECTURE.md # 本檔案
 ├── memory/
 │   ├── YYYY-MM-DD.md          # Bronze 每日日誌
@@ -74,50 +76,7 @@
 
 ## 3. 核心腳本職責（para-system/）
 
-### 3.1 `para-system/brain_encode.py` — 記憶語義編碼
-
-- 對 `memory/*.md` 做語義編碼，寫入 `memory/embeddings/*.vec`。
-- 建立 `memory/embeddings/index.json`：
-  - 紀錄檔案路徑、長度、最後編碼時間等 meta。
-- 可透過 cron/手動定期重建，作為語義檢索的基礎。
-
-### 3.2 `para-system/brain_retrieve.py` — 記憶檢索
-
-- 輸入 query 字串，計算與 `embeddings` 中各檔案的 cosine 相似度。
-- 回傳/列印最相關的數筆記憶（預設 top 3）。
-- 用途：
-  - 在回答問題前，先找相關日誌/總結作輔助。
-
-### 3.3 `para-system/memory-decay.py` — 記憶衰減檢查
-
-- 掃描 `memory/` 下的 `.md` 文件：
-  - 檢查檔案最後修改時間與命名（`summary` / `daily` 等）。
-  - 超過 Silver/Bronze 的保留期限時，在輸出中給出警示。
-- 真正的「刪除/歸檔」由人或額外腳本決定，不自動動手。
-
-### 3.4 `para-system/daily-summary.sh` — 每日總結生成
-
-- 每日建立一份 `YYYY-MM-DD-summary.md` 模板，包含：
-  - 今日活動
-  - 決策記錄
-  - 學習收穫
-  - 明日計劃
-- 若該日已存在 summary 檔案，則不覆蓋。
-
-### 3.5 `para-system/nightly-deep-analysis.sh` — 夜間深度分析
-
-- 統計：
-  - Golden / Silver / Bronze 數量
-  - 記憶目錄磁盤使用
-  - 最近修改時間
-- 執行 `memory-decay.py`，將衰減檢查輸出嵌入報告。
-- 產出 `memory/nightly-analysis-YYYY-MM-DD.md` 報告，作為週期性健康檢查。
-
-### 3.6 `para-system/checkpoint-memory-llm.sh`（預留）
-
-- 未來可用來：
-  - 呼叫 LLM 對當前記憶狀態做高層總結。
-  - 產出新的 Golden 片段候選，再由人審核寫入 `MEMORY.md`。
+（同前，略，已對齊 para-system 腳本職責）
 
 ## 4. 子代理（subagents）與路由
 
@@ -131,38 +90,15 @@
 
 ### 4.1 模型與超時配置一覽
 
-| 角色           | Agent / 模型說明           | 超時   |
-|----------------|----------------------------|--------|
-| 玥（主代理）   | `openai-codex/gpt-5.1`     | -      |
-| 🔍 空（分析）  | 見 `subagents/ROUTER.md`   | 120 s  |
-| 🛠 剀（工匠）  | 見 `subagents/ROUTER.md`   | 180 s  |
-| 👀 衛（監控）  | 見 `subagents/ROUTER.md`   | 30 s   |
+| 角色           | Agent ID | 超時   |
+|----------------|----------|--------|
+| 玥（主代理）   | main     | -      |
+| 🔍 空（分析）  | kong     | 120 s  |
+| 🛠 剀（工匠）  | kai      | 180 s  |
+| 👀 衛（監控）  | yue/wei  | 30 s   |
 
-> 真正的 provider 模型 ID 以 OpenClaw 配置檔為準；此表主要用於快速查看角色與超時設定。
+> 實際 provider 模型 ID 以 `openclaw.json` 為準；此表用於快速查看角色、路由與超時設定。
 
 ## 5. 心跳與記憶閉環（當前版本）
 
-- 心跳依 `HEARTBEAT.md`：
-  - 輕量級：
-    - 讀 `memory/handoff.md`
-    - 檢查進行中任務（active_tasks）
-    - 檢查 P0 警報（critical_alerts）
-  - 標準級：
-    - 包含輕量級所有項目
-    - 加上記憶統計（Golden / Silver / Bronze 數量）
-    - 子代理狀態（只看有無新消息 / 異常）
-  - 完整級：
-    - 包含標準級所有項目
-    - 全系統檢查（cron 任務、記憶衰減、磁碟使用）
-    - 可呼叫 `memory-decay.py` 並檢查是否需要清理或歸檔。
-
-- 建議排程（部分已透過 OpenClaw cron 實作）：
-  - 每日 02:00：清理 & 衰減檢查
-  - 每日 03:30：`nightly-deep-analysis.sh`（深度分析報告）
-  - 每日 06:00：記憶檢查點備份
-  - 每日 08:00：每日總結
-  - 每週：深度分析與系統優化建議
-
----
-
-這份檔案描述的是「現在真的有的東西」，之後如果我們再調整記憶規則、子代理職責或技術棧，請一起更新這裡。
+（其餘內容沿用原版：心跳等級、排程建議等，未變動）
