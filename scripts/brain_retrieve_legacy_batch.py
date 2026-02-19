@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Retrieve memories from memory/index.json using semantic similarity.
+"""[LEGACY BATCH RETRIEVER]
 
-- Uses all-MiniLM-L6-v2 via sentence-transformers.
-- Loads embeddings from memory/embeddings/{id}.npy.
-- Increments retrieval_count for memories that are returned.
-- Respects the same fcntl lock as brain_encode.py for safe updates.
+This script queries coarse-grained embeddings created by the legacy batch encoder.
+
+- Historical / experimental tool kept for reference.
+- Canonical, production retriever is: para-system/brain_retrieve.py
+
+Use this only if you explicitly want the old batch-style behavior.
 """
 
 import argparse

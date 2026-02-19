@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Encode a new memory entry into memory/index.json and store its embedding.
+"""[LEGACY BATCH ENCODER]
 
-- Uses all-MiniLM-L6-v2 via sentence-transformers.
-- Performs simple semantic deduplication: cosine similarity >= 0.75 reinforces existing memory.
-- Uses fcntl file lock to avoid concurrent write corruption.
+This script encodes MEMORY.md / today's memory file as coarse-grained embeddings.
 
-This is a minimal, readable implementation tailored for the Yue workspace.
+- Historical / experimental tool kept for reference.
+- Canonical, production encoder is: para-system/brain_encode.py
+
+Use this only if you explicitly want the old batch-style behavior.
 """
 
 import argparse
