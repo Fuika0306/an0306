@@ -27,7 +27,7 @@
 ## 詳細索引
 
 - **用戶信息** → USER.md
-- **當前狀態** → memory/handoff.md
+- **當前狀態** → memory/context-loader.md
 - **系統設計** → SYSTEM_ARCHITECTURE.md
 - **子代理配置** → subagents/ROUTER.md
 
