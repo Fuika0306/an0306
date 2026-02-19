@@ -2,7 +2,4 @@
 __pycache__/
 *.pyc
 .openclaw/
-Sacred-Essence-Viking/.venv/
-Sacred-Essence-Viking/__pycache__/
-Sacred-Essence-Viking/*.pyc
 memory/archive/

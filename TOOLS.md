@@ -17,10 +17,10 @@
 
 - 記憶編碼：para-system/brain_encode.py
 - 記憶檢索：para-system/brain_retrieve.py
-- 記憶衰減：para-system/memory-decay.py
 - 每日總結：para-system/daily-summary.sh
-- 深度分析：para-system/nightly-deep-analysis.sh
 - 檢查點：para-system/checkpoint-memory-llm.sh
+- 記憶衰減（TODO）：para-system/memory-decay.py
+- 深度分析（TODO）：para-system/nightly-deep-analysis.sh
 
 ## 記憶系統
 

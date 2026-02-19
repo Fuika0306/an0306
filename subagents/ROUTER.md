@@ -19,10 +19,10 @@
 - 預算：< 8k tokens
 
 ### 👀 衛（監控）
-- agentId：`yue`（或待拆 `wei`）
+- agentId：`wei`
 - 角色：快速檢查、狀態監控、結果驗證
 - 觸發：檢查、狀態、監控、掃描、驗證
-- 模型：Haiku（以 openclaw.json 實際配置為準）
+- 模型：以 openclaw.json 中 agent `wei` 的配置為準
 - 超時：30s
 - 預算：< 2k tokens
 
